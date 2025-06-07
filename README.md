@@ -3,6 +3,7 @@ Python APP
 
 Stack:
 - FLASK Framework
-- Turso Sqlite DB
+- Sqlite3
 - Alphine.js
+- AlpineAjax.js
 
