@@ -1,0 +1,27 @@
+# HCF / ralph-wiggum local state
+.claude/ralph-loop.local.md
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# OS
+.DS_Store
+
+# App data (CSV drop folder contents stay local; .gitkeep keeps the folder)
+data/*.duckdb
+data/*.duckdb.wal
+data/csv/*
+!data/csv/.gitkeep
+
+# Tailwind standalone binary + build output
+bin/tailwindcss
+app/static/css/app.css
