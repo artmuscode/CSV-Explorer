@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en" class="h-full">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}CSV Explorer{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}" />
+  </head>
+  <body class="h-full bg-white text-gray-900 flex flex-col min-h-screen">
+    {% include "partials/header.html" %}
+
+    <main class="flex-1 w-full px-4 py-6 sm:px-6 lg:px-8">
+      {% include "partials/flash_messages.html" %}
+      {% block content %}{% endblock %}
+    </main>
+
+    {% include "partials/footer.html" %}
+
+    {% block scripts %}{% endblock %}
+    <!--
+      Alpine.js 3.17.2, pinned exactly (never 3.x.x).
+      To upgrade: check the newest 3.x release with
+        curl -fsS https://data.jsdelivr.com/v1/packages/npm/alpinejs/resolved?specifier=3
+      then recompute the SRI hash for the new version with:
+        curl -fsSL https://cdn.jsdelivr.net/npm/alpinejs@<version>/dist/cdn.min.js \
+          | openssl dgst -sha384 -binary | openssl base64 -A
+    -->
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/alpinejs@3.17.2/dist/cdn.min.js"
+      integrity="sha384-lcaMFHdvRVsEXVuhit4fTnbxq6eTLm5HPdNzO7vXNZjr8HOCMouPmv4hSGF3PCJV"
+      crossorigin="anonymous"
+    ></script>
+  </body>
+</html>
