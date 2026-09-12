@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+/* Scan Jinja templates and JS for class names, regardless of the current
+   working directory the Tailwind CLI is invoked from. */
+@source "../../templates";
+@source "../js";
+
+@theme {
+  --color-brand: #2563eb;
+  --font-sans:
+    "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}

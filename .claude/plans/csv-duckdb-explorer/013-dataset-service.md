@@ -1,6 +1,6 @@
 # Task 013: DatasetService
 
-**Status**: pending
+**Status**: completed
 **Depends on**: 001, 002, 003, 005, 006, 007, 009
 **Retry count**: 0
 
@@ -26,13 +26,13 @@ Create `DatasetService`, the read and delete side of the domain. It lists datase
 - Tests use real in-memory repositories with small tables created through `repository.create_table_from_csv` and `metadata.upsert`.
 
 ## Requirements (Test Descriptions)
-- [ ] `test_list_datasets_returns_metadata_newest_first`
-- [ ] `test_get_page_raises_dataset_not_found_for_unknown_or_deleted_dataset` (parametrized)
-- [ ] `test_get_page_returns_filtered_page_from_repository`
-- [ ] `test_build_query_clamps_per_page_to_max_page_size`
-- [ ] `test_build_query_raises_invalid_query_error_for_non_integer_or_out_of_range_page` (parametrized: `"abc"`, `"0"`, `"-1"`, `"1000001"`)
-- [ ] `test_build_query_drops_blank_filter_values`
-- [ ] `test_delete_dataset_drops_table_and_hides_it_from_list_while_keeping_marker` (after the delete, `list_datasets()` excludes it, and `metadata.get(name).is_deleted` is true)
+- [x] `test_list_datasets_returns_metadata_newest_first`
+- [x] `test_get_page_raises_dataset_not_found_for_unknown_or_deleted_dataset` (parametrized)
+- [x] `test_get_page_returns_filtered_page_from_repository`
+- [x] `test_build_query_clamps_per_page_to_max_page_size`
+- [x] `test_build_query_raises_invalid_query_error_for_non_integer_or_out_of_range_page` (parametrized: `"abc"`, `"0"`, `"-1"`, `"1000001"`)
+- [x] `test_build_query_drops_blank_filter_values`
+- [x] `test_delete_dataset_drops_table_and_hides_it_from_list_while_keeping_marker` (after the delete, `list_datasets()` excludes it, and `metadata.get(name).is_deleted` is true)
 
 ## Acceptance Criteria
 - All requirements have passing tests
@@ -40,4 +40,15 @@ Create `DatasetService`, the read and delete side of the domain. It lists datase
 - Code follows code standards
 
 ## Implementation Notes
-(Left blank - filled in by programmer during implementation)
+- `build_query` added: parses `page`/`per_page` strings via `int()`, catching `ValueError` into
+  `InvalidQueryError`; `page` bounds checked against `1..MAX_PAGE_NUMBER` (module constant
+  `1_000_000`); `per_page` clamped to `[1, max_page_size]` (never raises on out-of-range, only on
+  non-integer input); `sort_dir` parsed case-insensitively via `SortDirection(...)`, raising
+  `InvalidQueryError` on anything else; blank/whitespace-only `page`, `per_page`, `search`,
+  `sort_by`, `sort_dir` fall back to defaults; filter values are stripped and blank ones dropped.
+- `delete_dataset` added: calls `get_dataset` (so it 404s on unknown/already-deleted names), then
+  `repository.drop_table(name)` and `metadata.mark_deleted(name, self._clock())`. Leaves the CSV
+  file on disk untouched.
+- All 11 requirement tests plus the earlier 4 pass together (`uv run pytest
+  tests/unit/services/test_dataset_service.py -q` → 11 passed). `ruff check` / `ruff format
+  --check` clean on both changed files.

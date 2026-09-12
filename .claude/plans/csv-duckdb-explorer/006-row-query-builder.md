@@ -1,6 +1,6 @@
 # Task 006: RowQueryBuilder — Search / Filter / Sort SQL
 
-**Status**: pending
+**Status**: completed
 **Depends on**: 001, 002, 003
 **Retry count**: 0
 
@@ -23,13 +23,13 @@ Create `RowQueryBuilder`, a pure class that turns a table name, its columns and 
 - **Test by behavior.** Create a small in-memory DuckDB table in each test, run the built SQL with its params, and assert on the rows that come back. Only assert on raw SQL text where that's unavoidable (e.g. the `LIMIT ? OFFSET ?` params).
 
 ## Requirements (Test Descriptions)
-- [ ] `test_build_without_filters_returns_rows_in_insertion_order_with_limit_and_offset`
-- [ ] `test_build_search_matches_any_column_case_insensitively`
-- [ ] `test_build_column_filters_are_combined_with_and`
-- [ ] `test_build_treats_percent_and_underscore_in_user_input_literally`
-- [ ] `test_build_sorts_by_requested_column_and_direction_with_nulls_last`
-- [ ] `test_build_raises_invalid_query_error_for_unknown_filter_column`
-- [ ] `test_build_raises_invalid_query_error_for_unknown_sort_column`
+- [x] `test_build_without_filters_returns_rows_in_insertion_order_with_limit_and_offset`
+- [x] `test_build_search_matches_any_column_case_insensitively`
+- [x] `test_build_column_filters_are_combined_with_and`
+- [x] `test_build_treats_percent_and_underscore_in_user_input_literally`
+- [x] `test_build_sorts_by_requested_column_and_direction_with_nulls_last`
+- [x] `test_build_raises_invalid_query_error_for_unknown_filter_column`
+- [x] `test_build_raises_invalid_query_error_for_unknown_sort_column`
 
 ## Acceptance Criteria
 - All requirements have passing tests
@@ -37,4 +37,28 @@ Create `RowQueryBuilder`, a pure class that turns a table name, its columns and 
 - Code follows code standards
 
 ## Implementation Notes
-(Left blank - filled in by programmer during implementation)
+- Implemented `app/repositories/row_query_builder.py` with `BuiltQuery` (frozen dataclass:
+  `select_sql`, `select_params`, `count_sql`, `count_params`) and `RowQueryBuilder.build(table,
+  columns, query)`.
+- Because the builder's rules are tightly interdependent (WHERE clause shared by SELECT/COUNT,
+  ORDER BY tiebreaker logic, LIKE escaping), the module and the full test file were written
+  together rather than strictly interleaving one test/one-line-of-code at a time. All 7 tests
+  passed on first run. To validate they weren't vacuous, I temporarily broke `_escape_like_term`
+  (made it a no-op) and re-ran `test_build_treats_percent_and_underscore_in_user_input_literally`,
+  confirming it failed as expected, then reverted the change and confirmed green again.
+- Every user-supplied value (search term, filter value, per_page, offset) is passed as a bound
+  `?` parameter — never interpolated into SQL text. Only `table` and column names, which are
+  validated against `columns`/`query.filters`/`query.sort_by` and passed through
+  `quote_identifier`, are interpolated as identifiers.
+- LIKE escaping: `_escape_like_term` regex-escapes `\`, `%`, `_` (prefixing each with `\`) before
+  wrapping the term in `%...%`; every generated `ILIKE` clause uses `ESCAPE '\'`.
+- Sort tiebreaker: default order is `ORDER BY rowid`; with `sort_by`, it's
+  `ORDER BY "col" ASC|DESC NULLS LAST, rowid`. If any column is named `rowid`
+  (case-insensitive), the tiebreaker falls back to `ORDER BY` every column in the order given in
+  `columns` (which reflects `ordinal_position`), both as the default order and after a `sort_by`
+  column, since DuckDB's hidden `rowid` pseudo-column would otherwise be shadowed. Covered by an
+  extra assertion inside `test_build_sorts_by_requested_column_and_direction_with_nulls_last`
+  (kept inside that test, not a separate requirement, per the task's Context note).
+- Validation: filter keys and `sort_by` are checked against the exact (case-sensitive) column
+  names in `columns`; unknown ones raise `InvalidQueryError` before any SQL is built.
+- `uv run ruff check` and `uv run ruff format --check` pass on both new files.

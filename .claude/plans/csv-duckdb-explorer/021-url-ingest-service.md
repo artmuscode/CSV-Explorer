@@ -1,6 +1,6 @@
 # Task 021: UrlIngestService
 
-**Status**: pending
+**Status**: completed
 **Depends on**: 001, 002, 003, 005, 007, 010, 011
 **Retry count**: 0
 
@@ -21,11 +21,11 @@ Create `UrlIngestService`, which ingests a CSV from a URL. It downloads through 
   - No network, and no real `CsvDownloader` needed.
 
 ## Requirements (Test Descriptions)
-- [ ] `test_ingest_records_url_source_and_source_url`
-- [ ] `test_ingest_rejects_blank_url_without_downloading`
-- [ ] `test_ingest_propagates_downloader_ingest_error`
-- [ ] `test_ingest_removes_staged_file_when_downloaded_csv_is_unloadable`
-- [ ] `test_ingest_keeps_existing_file_with_same_name_when_download_is_unloadable`
+- [x] `test_ingest_records_url_source_and_source_url`
+- [x] `test_ingest_rejects_blank_url_without_downloading`
+- [x] `test_ingest_propagates_downloader_ingest_error`
+- [x] `test_ingest_removes_staged_file_when_downloaded_csv_is_unloadable`
+- [x] `test_ingest_keeps_existing_file_with_same_name_when_download_is_unloadable`
 
 ## Acceptance Criteria
 - All requirements have passing tests
@@ -33,4 +33,27 @@ Create `UrlIngestService`, which ingests a CSV from a URL. It downloads through 
 - Code follows code standards
 
 ## Implementation Notes
-(Left blank - filled in by programmer during implementation)
+- Created `app/services/url_ingest_service.py` with `UrlIngestService(downloader, ingest_service)`
+  and a single public method `ingest(url) -> IngestResult`, exactly per spec: strip, reject blank
+  with `IngestError("Please enter a URL")` before touching the downloader, delegate to
+  `CsvDownloader.download` (letting its `IngestError` propagate unchanged), then delegate to
+  `CsvIngestService.install_and_ingest(downloaded.path, downloaded.filename, DatasetSource.URL,
+  source_url=url)`. Rollback-on-failure and staged-file cleanup live entirely in
+  `install_and_ingest` (task 011/012), so this service stays a thin coordinator with no file I/O
+  of its own.
+- All 5 requirements were implemented together as they map to one small method with few branches;
+  each test was written and confirmed to exercise a distinct behavior (happy path, blank-URL guard,
+  downloader-error passthrough, unloadable-CSV cleanup with no prior file, unloadable-CSV cleanup
+  restoring a prior same-named file). Ran the blank-URL and unloadable-content tests individually
+  against a stub-only version first to verify they'd fail without the guard/`install_and_ingest`
+  call before finalizing the implementation.
+- Test module defines a local `FakeDownloader` (per task instructions, not added to
+  `tests/fakes.py`) that stages a given `bytes` body to `csv_dir / f".{uuid4().hex}.part"` and
+  returns a `DownloadedFile`, or raises a pre-set `IngestError`. Tests use a real
+  `CsvIngestService` wired to in-memory DuckDB + `MetadataRepository` and a `tmp_path` csv_dir, per
+  the test plan — no `CsvDownloader` or network involved.
+- `uv run pytest tests/unit/services/test_url_ingest_service.py -v`: 5 passed.
+- `uv run ruff check` / `ruff format --check` on both new files: clean.
+- This task ran in a parallel batch alongside 012, 013 and 020 editing other files in the same
+  tree, so (per orchestrator rules) only this task's own test file and lint checks were run here
+  rather than the full suite, which may be red mid-cycle for other in-progress tasks.

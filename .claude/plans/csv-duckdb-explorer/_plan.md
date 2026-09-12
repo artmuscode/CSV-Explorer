@@ -4,7 +4,7 @@
 2026-09-10
 
 ## Status
-ready
+completed
 
 ## Objective
 Turn the Flask starter into a layered OOP app that ingests CSVs (drop folder, browser upload, or URL download) into DuckDB tables and shows each dataset as a server-side paginated, searchable, filterable, sortable table, built with Alpine.js and Tailwind CSS 4.
@@ -74,28 +74,28 @@ none
 ## Task Overview
 | Task | Description | Depends On | Status |
 |------|-------------|------------|--------|
-| 001 | Bootstrap tooling, config & app factory skeleton, `make_app` fixture, legacy cleanup | - | pending |
-| 002 | Domain models (dataclass DTOs) & exceptions | 001 | pending |
-| 003 | SQL identifier & table-naming helpers | 001 | pending |
-| 004 | Frontend foundation: Tailwind, base layout, error pages | 001 | pending |
-| 005 | DuckDBRepository: table operations | 001, 002, 003 | pending |
-| 006 | RowQueryBuilder: search / filter / sort SQL | 001, 002, 003 | pending |
-| 007 | MetadataRepository (`_datasets`) | 001, 002, 003 | pending |
-| 008 | UrlGuard (SSRF protection) | 001, 002 | pending |
-| 009 | DuckDBRepository.fetch_page | 001, 002, 003, 005, 006 | pending |
-| 010 | CsvDownloader core: staging, redirects, filenames + shared `tests/fakes.py` | 001, 002, 008 | pending |
-| 011 | CsvIngestService: files & uploads (public `install_and_ingest` with rollback) | 001, 002, 003, 005, 007 | pending |
-| 012 | CsvIngestService: folder scan (deletion-aware, collisions, glob chars) | 001, 002, 003, 005, 007, 011 | pending |
-| 013 | DatasetService (deletion marker, page cap) | 001, 002, 003, 005, 006, 007, 009 | pending |
-| 014 | App wiring: lazy service container, startup scan, blueprint registry, `fake_network` fixture | 001–013, 020–022 | pending |
-| 015 | Main blueprint: dataset list & delete | 001–014, 020–022 | pending |
-| 016 | Ingest blueprint: upload, URL, scan | 001–014, 020–022 | pending |
-| 017 | Datasets blueprint: table page & rows JSON API | 001–014, 020–022 | pending |
-| 018 | Alpine.js datasetTable component | 001–014, 017, 020–022 | pending |
-| 019 | End-to-end tests, README & final verification | 001–018, 020–022 | pending |
-| 020 | CsvDownloader: limits, deadlines & failure cleanup | 001, 002, 008, 010 | pending |
-| 021 | UrlIngestService (URL → staged download → `install_and_ingest`) | 001, 002, 003, 005, 007, 010, 011 | pending |
-| 022 | Same-origin protection for POSTs (CSRF) + SameSite cookie | 001, 004 | pending |
+| 001 | Bootstrap tooling, config & app factory skeleton, `make_app` fixture, legacy cleanup | - | completed |
+| 002 | Domain models (dataclass DTOs) & exceptions | 001 | completed |
+| 003 | SQL identifier & table-naming helpers | 001 | completed |
+| 004 | Frontend foundation: Tailwind, base layout, error pages | 001 | completed |
+| 005 | DuckDBRepository: table operations | 001, 002, 003 | completed |
+| 006 | RowQueryBuilder: search / filter / sort SQL | 001, 002, 003 | completed |
+| 007 | MetadataRepository (`_datasets`) | 001, 002, 003 | completed |
+| 008 | UrlGuard (SSRF protection) | 001, 002 | completed |
+| 009 | DuckDBRepository.fetch_page | 001, 002, 003, 005, 006 | completed |
+| 010 | CsvDownloader core: staging, redirects, filenames + shared `tests/fakes.py` | 001, 002, 008 | completed |
+| 011 | CsvIngestService: files & uploads (public `install_and_ingest` with rollback) | 001, 002, 003, 005, 007 | completed |
+| 012 | CsvIngestService: folder scan (deletion-aware, collisions, glob chars) | 001, 002, 003, 005, 007, 011 | completed |
+| 013 | DatasetService (deletion marker, page cap) | 001, 002, 003, 005, 006, 007, 009 | completed |
+| 014 | App wiring: lazy service container, startup scan, blueprint registry, `fake_network` fixture | 001–013, 020–022 | completed |
+| 015 | Main blueprint: dataset list & delete | 001–014, 020–022 | completed |
+| 016 | Ingest blueprint: upload, URL, scan | 001–014, 020–022 | completed |
+| 017 | Datasets blueprint: table page & rows JSON API | 001–014, 020–022 | completed |
+| 018 | Alpine.js datasetTable component | 001–014, 017, 020–022 | completed |
+| 019 | End-to-end tests, README & final verification | 001–018, 020–022 | completed |
+| 020 | CsvDownloader: limits, deadlines & failure cleanup | 001, 002, 008, 010 | completed |
+| 021 | UrlIngestService (URL → staged download → `install_and_ingest`) | 001, 002, 003, 005, 007, 010, 011 | completed |
+| 022 | Same-origin protection for POSTs (CSRF) + SameSite cookie | 001, 004 | completed |
 
 Task numbers 020–022 were added after the review. Execution order follows **Depends on**, not the number. Batches: B1 001 · B2 002, 003, 004 · B3 005, 006, 007, 008, 022 · B4 009, 010, 011 · B5 012, 013, 020, 021 · B6 014 · B7 015, 016, 017 · B8 018 · B9 019.
 

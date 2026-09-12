@@ -1,6 +1,6 @@
 # Task 011: CsvIngestService — Files & Uploads
 
-**Status**: pending
+**Status**: completed
 **Depends on**: 001, 002, 003, 005, 007
 **Retry count**: 0
 
@@ -38,14 +38,14 @@ Create `CsvIngestService`, which turns a CSV file on disk into a dataset: a Duck
 - **Tests use real repositories** on `duckdb.connect(":memory:")` with `metadata.ensure_schema()`, a `tmp_path` csv_dir and a fixed clock. Don't use mocks.
 
 ## Requirements (Test Descriptions)
-- [ ] `test_ingest_file_creates_table_named_after_file`
-- [ ] `test_ingest_file_records_metadata_with_source_size_and_mtime`
-- [ ] `test_ingest_file_reports_replaced_only_when_a_live_dataset_already_existed` (existing live dataset → `replaced=True`; dataset marked deleted → `replaced=False`, and the marker is cleared)
-- [ ] `test_ingest_file_rejects_non_csv_extension`
-- [ ] `test_save_upload_writes_sanitized_filename_into_csv_dir`
-- [ ] `test_save_upload_rejects_empty_filename`
-- [ ] `test_save_upload_removes_file_when_csv_is_unloadable`
-- [ ] `test_save_upload_restores_previous_file_and_table_when_replacement_is_unloadable` (ingest a good `sales.csv`, then upload an empty `sales.csv`, then assert the original bytes, the original rows and the metadata are unchanged, and that no `.part`/`.bak` files remain)
+- [x] `test_ingest_file_creates_table_named_after_file`
+- [x] `test_ingest_file_records_metadata_with_source_size_and_mtime`
+- [x] `test_ingest_file_reports_replaced_only_when_a_live_dataset_already_existed` (existing live dataset → `replaced=True`; dataset marked deleted → `replaced=False`, and the marker is cleared)
+- [x] `test_ingest_file_rejects_non_csv_extension`
+- [x] `test_save_upload_writes_sanitized_filename_into_csv_dir`
+- [x] `test_save_upload_rejects_empty_filename`
+- [x] `test_save_upload_removes_file_when_csv_is_unloadable`
+- [x] `test_save_upload_restores_previous_file_and_table_when_replacement_is_unloadable` (ingest a good `sales.csv`, then upload an empty `sales.csv`, then assert the original bytes, the original rows and the metadata are unchanged, and that no `.part`/`.bak` files remain)
 
 ## Acceptance Criteria
 - All requirements have passing tests
@@ -53,4 +53,9 @@ Create `CsvIngestService`, which turns a CSV file on disk into a dataset: a Duck
 - Code follows code standards
 
 ## Implementation Notes
-(Left blank - filled in by programmer during implementation)
+- Implemented `app/services/csv_ingest_service.py` with `CsvIngestService(repository, metadata, csv_dir, clock)`.
+- `ingest_file` rejects non-`.csv` suffixes and invalid-derived-table-name filenames with `IngestError`, computes `replaced` from `metadata.get(table)` (a deleted dataset counts as not replaced), and upserts a `Dataset` with `deleted_at=None` so re-ingest clears any prior deletion marker.
+- `install_and_ingest` (public, used later by `UrlIngestService` in task 021) backs up any existing file at the destination to `.{filename}.{uuid4().hex}.bak`, replaces it with the staged file (`os.replace`, so mtime is preserved), calls `ingest_file`, and on any exception restores the backup and removes the failed file/staged remnants before re-raising; on success it removes the backup.
+- `save_upload` sanitizes the filename with `secure_filename`, rejects empty or non-`.csv` results, streams the upload into a hidden `.{uuid4().hex}.part` staging file (ignored by folder scan), and delegates to `install_and_ingest`.
+- No Flask import and no import of `app.services.csv_downloader`, per constraints.
+- All 8 requirement tests written against real `DuckDBRepository`/`MetadataRepository` on an in-memory DuckDB connection with a fixed clock (no mocks), and they pass. `uv run ruff check` and `uv run ruff format --check` are clean on both new files.

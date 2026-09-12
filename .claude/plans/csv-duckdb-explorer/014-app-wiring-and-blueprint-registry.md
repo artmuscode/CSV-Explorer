@@ -1,6 +1,6 @@
 # Task 014: App Wiring — Service Container, Startup Scan, Blueprint Registry
 
-**Status**: pending
+**Status**: completed
 **Depends on**: 001, 002, 003, 004, 005, 006, 007, 008, 009, 010, 011, 012, 013, 020, 021, 022
 **Retry count**: 0
 
@@ -61,15 +61,15 @@ Keep `make_app` / `app` / `client` from task 001.
   - Tasks 016 and 019 use this fixture for every URL-ingest test.
 
 ## Requirements (Test Descriptions)
-- [ ] `test_create_app_does_not_open_duckdb_until_services_are_used` (after `make_app()`, `DUCKDB_PATH` doesn't exist yet)
-- [ ] `test_get_services_builds_container_once_and_caches_it`
-- [ ] `test_services_ensure_metadata_schema_exists`
-- [ ] `test_first_service_use_scans_csv_dir_when_scan_on_startup_enabled`
-- [ ] `test_startup_scan_skipped_when_disabled`
-- [ ] `test_startup_scan_logs_and_continues_when_files_fail`
-- [ ] `test_fake_network_fixture_routes_url_ingest_through_fake_session`
-- [ ] `test_create_app_registers_main_ingest_and_datasets_blueprints`
-- [ ] `test_all_final_endpoint_names_resolve_with_url_for`
+- [x] `test_create_app_does_not_open_duckdb_until_services_are_used` (after `make_app()`, `DUCKDB_PATH` doesn't exist yet)
+- [x] `test_get_services_builds_container_once_and_caches_it`
+- [x] `test_services_ensure_metadata_schema_exists`
+- [x] `test_first_service_use_scans_csv_dir_when_scan_on_startup_enabled`
+- [x] `test_startup_scan_skipped_when_disabled`
+- [x] `test_startup_scan_logs_and_continues_when_files_fail`
+- [x] `test_fake_network_fixture_routes_url_ingest_through_fake_session`
+- [x] `test_create_app_registers_main_ingest_and_datasets_blueprints`
+- [x] `test_all_final_endpoint_names_resolve_with_url_for`
 
 ## Acceptance Criteria
 - All requirements have passing tests
@@ -77,4 +77,39 @@ Keep `make_app` / `app` / `client` from task 001.
 - Code follows code standards
 
 ## Implementation Notes
-(Left blank - filled in by programmer during implementation)
+- `app/container.py` adds `ServiceContainer` (a `@dataclass(slots=True)` with `connection`, `repository`,
+  `metadata`, `url_guard`, `downloader`, `ingest_service`, `url_ingest_service`, `dataset_service`, and
+  `close()`), `build_container(config, *, session=None, resolver=None)`, `init_services(app)`,
+  `get_services(app)`, `set_services(app, container)`, `current_services()`, and a private
+  `_ServiceHolder` (container + `threading.Lock`) stored at `app.extensions["csv_explorer"]`.
+  `get_services` builds the container under the holder's lock on first call, runs the startup scan
+  (`ingest_service.scan_folder()`) when `SCAN_ON_STARTUP` is set — logging each `ScanResult.errors`
+  entry with `app.logger.warning` and any unexpected exception with `app.logger.exception` so a bad
+  scan never crashes the app — then caches and returns the container. Also added `close_services(app)`,
+  a small helper used by test teardown so tests never need to reach into the holder's private fields.
+- `app/blueprints/{main,ingest,datasets}.py` register the seven final endpoints/URLs as one-line
+  `"Not implemented", 501` stubs (`main.index` GET `/`, `main.delete` POST `/datasets/<name>/delete`,
+  `ingest.upload` POST `/ingest/upload`, `ingest.from_url` POST `/ingest/url`, `ingest.scan` POST
+  `/ingest/scan`, `datasets.show` GET `/datasets/<name>`, `datasets.rows` GET `/api/datasets/<name>/rows`).
+  `app/blueprints/__init__.py` exposes `register_blueprints(app)`.
+- `app/__init__.py`: `create_app` now calls, in order, `init_services(app)` (opens nothing) →
+  `register_error_handlers(app)` → `register_same_origin_check(app)` → `register_blueprints(app)`.
+  Config/`CSV_DIR`/`DUCKDB_PATH` setup is unchanged.
+- `tests/conftest.py`: `make_app` tracks every app it builds and calls `close_services(app)` on each at
+  teardown; `app`/`client` are unchanged in shape. Added `services(app)` → `get_services(app)`,
+  `write_csv(app)` (factory writing str/bytes into `CSV_DIR`), `ingested(services, write_csv)` (factory
+  that writes then calls `ingest_service.ingest_file(...).dataset`), and `fake_network(app)`, which builds
+  a container via `build_container(app.config, session=FakeSession(routes), resolver=static_resolver(dns))`
+  and installs it with `set_services` — `routes`/`dns` are shared by reference on the returned
+  `FakeNetwork` object so tests can add entries afterwards.
+- All 9 new tests passed on first run once the wiring/container/blueprints were written together (this
+  was an integration/wiring task assembling already-implemented, already-tested collaborators from
+  tasks 001–013/020–022, so RED/GREEN was validated as a whole rather than per-requirement-with-a-
+  necessarily-failing-intermediate-state).
+- Full suite: `uv run pytest -n auto` → 149 passed (140 existing + 9 new). `uv run ruff check .` and
+  `uv run ruff format --check .` both clean. Coverage 94.72% (`--cov-fail-under=80` passes).
+- Manual dev-server check performed (not just "pending"): started
+  `CSV_EXPLORER_CSV_DIR=/tmp/... CSV_EXPLORER_DUCKDB_PATH=/tmp/... uv run flask --app app run --debug --port 5055`
+  in the background against a scratch `/tmp` directory (never `data/`); `curl -s -o /dev/null -w '%{http_code}' localhost:5055/`
+  returned `501`; the log showed the reloader restarting and serving the request with no DuckDB lock
+  error. Server was killed and the scratch directory removed afterward.

@@ -1,6 +1,6 @@
 # Task 007: MetadataRepository (`_datasets`)
 
-**Status**: pending
+**Status**: completed
 **Depends on**: 001, 002, 003
 **Retry count**: 0
 
@@ -24,13 +24,13 @@ Create `MetadataRepository`, which stores one row per dataset in an internal `_d
 - Tests use `duckdb.connect(":memory:")`.
 
 ## Requirements (Test Descriptions)
-- [ ] `test_ensure_schema_is_idempotent`
-- [ ] `test_upsert_then_get_round_trips_dataset` (with a tz-aware UTC `ingested_at`, and asserts `get(...) == original`)
-- [ ] `test_upsert_replaces_existing_record_with_same_name`
-- [ ] `test_get_returns_none_for_unknown_name`
-- [ ] `test_list_all_returns_datasets_newest_first`
-- [ ] `test_mark_deleted_hides_dataset_from_list_all_but_get_still_returns_it`
-- [ ] `test_upsert_clears_deletion_marker`
+- [x] `test_ensure_schema_is_idempotent`
+- [x] `test_upsert_then_get_round_trips_dataset` (with a tz-aware UTC `ingested_at`, and asserts `get(...) == original`)
+- [x] `test_upsert_replaces_existing_record_with_same_name`
+- [x] `test_get_returns_none_for_unknown_name`
+- [x] `test_list_all_returns_datasets_newest_first`
+- [x] `test_mark_deleted_hides_dataset_from_list_all_but_get_still_returns_it`
+- [x] `test_upsert_clears_deletion_marker`
 
 ## Acceptance Criteria
 - All requirements have passing tests
@@ -38,4 +38,5 @@ Create `MetadataRepository`, which stores one row per dataset in an internal `_d
 - No decrease in test coverage
 
 ## Implementation Notes
-(Left blank - filled in by programmer during implementation)
+- `app/repositories/metadata_repository.py`: `MetadataRepository` with `ensure_schema`, `upsert`, `get`, `list_all`, `mark_deleted`, matching the spec exactly (explicit column list in `INSERT OR REPLACE`, `?` bindings throughout, naive-UTC on write / `tzinfo=UTC` on read for both `ingested_at` and `deleted_at`).
+- `tests/unit/repositories/test_metadata_repository.py`: 7 tests, each using a fresh `duckdb.connect(":memory:")` connection via a `repo` fixture plus a `make_dataset(**overrides)` helper. All 7 pass; `uv run ruff check` / `ruff format` clean on both files.

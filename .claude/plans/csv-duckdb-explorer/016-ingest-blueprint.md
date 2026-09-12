@@ -1,6 +1,6 @@
 # Task 016: Ingest Blueprint — Upload, URL, Scan
 
-**Status**: pending
+**Status**: completed
 **Depends on**: 001, 002, 003, 004, 005, 006, 007, 008, 009, 010, 011, 012, 013, 014, 020, 021, 022
 **Retry count**: 0
 
@@ -28,14 +28,14 @@ Implement the three ingest endpoints. Upload and scan delegate to `CsvIngestServ
 - **Unloadable files in tests:** use the canonical 0-byte CSV from task 005. Invalid UTF-8 now loads through the Latin-1 fallback, so it no longer fails.
 
 ## Requirements (Test Descriptions)
-- [ ] `test_upload_ingests_csv_and_redirects_to_dataset_view`
-- [ ] `test_upload_without_file_flashes_error_and_redirects_home`
-- [ ] `test_upload_of_unloadable_csv_flashes_error`
-- [ ] `test_upload_exceeding_max_content_length_flashes_error`
-- [ ] `test_url_ingest_redirects_to_dataset_view_on_success`
-- [ ] `test_url_ingest_flashes_error_for_blocked_private_address`
-- [ ] `test_scan_flashes_summary_of_ingested_skipped_and_failed_files`
-- [ ] `test_scan_with_many_failures_caps_flashed_errors_and_session_cookie_stays_small` (7 empty `.csv` files: at most 5 error flashes plus "…and 2 more", and the `Set-Cookie` session value is under 4000 bytes)
+- [x] `test_upload_ingests_csv_and_redirects_to_dataset_view`
+- [x] `test_upload_without_file_flashes_error_and_redirects_home`
+- [x] `test_upload_of_unloadable_csv_flashes_error`
+- [x] `test_upload_exceeding_max_content_length_flashes_error`
+- [x] `test_url_ingest_redirects_to_dataset_view_on_success`
+- [x] `test_url_ingest_flashes_error_for_blocked_private_address`
+- [x] `test_scan_flashes_summary_of_ingested_skipped_and_failed_files`
+- [x] `test_scan_with_many_failures_caps_flashed_errors_and_session_cookie_stays_small` (7 empty `.csv` files: at most 5 error flashes plus "…and 2 more", and the `Set-Cookie` session value is under 4000 bytes)
 
 ## Acceptance Criteria
 - All requirements have passing tests
@@ -43,4 +43,10 @@ Implement the three ingest endpoints. Upload and scan delegate to `CsvIngestServ
 - Code follows code standards
 
 ## Implementation Notes
-(Left blank - filled in by programmer during implementation)
+- All 8 requirements implemented and passing together in one pass (each was written and confirmed RED against the 501 stubs before implementing).
+- `app/blueprints/ingest.py`: three thin routes (`upload`, `from_url`, `scan`) plus a `bp.app_errorhandler(RequestEntityTooLarge)` handler for 413. `_truncate` (private helper, 300-char cap) wraps every flashed string, including the capped scan-error and "File too large" messages. `_flash_ingest_result` is a small shared helper for the upload/URL "Replaced"/"Created" success message so both routes share the same wording logic.
+- `from_url` relies on `UrlIngestService.ingest` to raise `IngestError("Please enter a URL")` for a blank URL rather than duplicating that check in the route, since the plan's "IngestError -> flash error, redirect main.index" rule already covers it.
+- Scan errors: flashes at most 5 `"<filename>: <message>"` error flashes (in the same sorted-by-filename order `scan_folder` produces), then one more `"…and N more"` flash if there were additional failures.
+- `app/errors.py` untouched; the 413 handler lives in `app/blueprints/ingest.py` via `app_errorhandler`, which registers app-wide once the blueprint is registered.
+- New test file `tests/integration/test_ingest_routes.py`. Flash assertions read `session["_flashes"]` via `client.session_transaction()` instead of following redirects, since `main.index`/`datasets.show` may still be 501 stubs from the parallel 015/017 tasks. Redirect assertions check `response.headers["Location"]` directly (e.g. `/datasets/people`, `/`).
+- Verified: `uv run pytest tests/integration/test_ingest_routes.py` (8 passed), plus `tests/unit/services/test_csv_ingest_service.py` and `tests/unit/services/test_url_ingest_service.py` still green (28 total). `uv run ruff check` / `ruff format --check` clean on the two files I own.

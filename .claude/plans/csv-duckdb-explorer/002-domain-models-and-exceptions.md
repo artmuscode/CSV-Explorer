@@ -1,6 +1,6 @@
 # Task 002: Domain Models (Dataclass DTOs) & Exceptions
 
-**Status**: pending
+**Status**: completed
 **Depends on**: 001
 **Retry count**: 0
 
@@ -27,13 +27,13 @@ Create the immutable dataclass DTOs that pass between layers, plus the domain ex
 - Patterns to follow: `.claude/code-standards.md` (DTO rules)
 
 ## Requirements (Test Descriptions)
-- [ ] `test_row_query_offset_is_derived_from_page_and_per_page`
-- [ ] `test_page_total_pages_rounds_up_partial_last_page_and_is_one_when_empty` (parametrized)
-- [ ] `test_page_has_next_is_false_on_last_page`
-- [ ] `test_page_has_prev_is_false_on_first_page`
-- [ ] `test_page_to_dict_includes_rows_columns_and_paging_fields`
-- [ ] `test_dataset_is_deleted_reflects_deleted_at`
-- [ ] `test_domain_exceptions_inherit_from_csv_explorer_error`
+- [x] `test_row_query_offset_is_derived_from_page_and_per_page`
+- [x] `test_page_total_pages_rounds_up_partial_last_page_and_is_one_when_empty` (parametrized)
+- [x] `test_page_has_next_is_false_on_last_page`
+- [x] `test_page_has_prev_is_false_on_first_page`
+- [x] `test_page_to_dict_includes_rows_columns_and_paging_fields`
+- [x] `test_dataset_is_deleted_reflects_deleted_at`
+- [x] `test_domain_exceptions_inherit_from_csv_explorer_error`
 
 ## Acceptance Criteria
 - All requirements have passing tests
@@ -41,4 +41,10 @@ Create the immutable dataclass DTOs that pass between layers, plus the domain ex
 - No decrease in test coverage
 
 ## Implementation Notes
-(Left blank - filled in by programmer during implementation)
+- Implemented all DTOs and exceptions from the Context section, driven by the 7 named requirement tests plus small supporting tests for `Column`, `IngestResult` and `ScanResult` (needed since tasks 003/004 import these modules directly; without fields/behavior for them the modules wouldn't be importable).
+- `app/models/row_query.py` holds both `SortDirection` (StrEnum) and `RowQuery`, mirroring how `DatasetSource` lives alongside `Dataset` in `app/models/dataset.py`.
+- `Dataset`'s docstring documents the UTC-datetime contract and the "remember deletions" rationale for `deleted_at`, verbatim from the task spec, for tasks 007/011/012/013.
+- `app/models/__init__.py` re-exports `Column`, `Dataset`, `DatasetSource`, `IngestResult`, `Page`, `RowQuery`, `ScanResult`, `SortDirection`.
+- `app/exceptions.py` defines `CsvExplorerError` as the base, with `IngestError`, `DatasetNotFoundError`, `InvalidQueryError` subclasses; no message/attribute behavior was specified so they're plain `Exception` subclasses with docstrings.
+- `uv run ruff check` and `uv run ruff format --check` pass on all files in this task's scope; `uv run pytest tests/unit/models tests/unit/test_exceptions.py --cov=app.models --cov=app.exceptions` is 100% covered (16 tests).
+- Full-suite run (`uv run pytest -n auto`) shows 5 failures in `tests/integration/test_layout_and_errors.py`, all pre-existing from parallel tasks 003/004's in-progress work (templates/error handlers not yet in place); none of the failing tests touch `app/models` or `app/exceptions.py`.

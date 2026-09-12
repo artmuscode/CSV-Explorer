@@ -48,10 +48,10 @@ app/
     datasets.py            # GET /datasets/<name> (HTML), GET /api/datasets/<name>/rows (JSON)
   templates/
     base.html              # layout, Tailwind CSS, Alpine.js
-    partials/              # header, footer, flash messages, pagination
+    partials/              # header, footer, flash_messages
     index.html
-    errors/                # 404.html, 500.html
-    datasets/show.html     # table view + Alpine filter component
+    errors/                # 403.html, 404.html, 500.html
+    datasets/show.html     # table view + Alpine filter/sort/paginate component
   static/
     css/input.css          # Tailwind v4 source (@import "tailwindcss";)
     css/app.css            # built output (gitignored)
@@ -126,4 +126,4 @@ Pagination and filtering both run **server-side**, so filters apply across the w
 ## Error Handling
 - Services raise domain exceptions from `app/exceptions.py`.
 - Blueprints turn them into flash messages (HTML routes) or `{"error": ...}` with a 4xx status (JSON routes).
-- A 404 handler covers unknown datasets. Unexpected errors are logged and return a 500 page, without leaking stack traces in production.
+- `app/errors.py` registers 403/404/500 handlers: `/api/` requests get JSON, everything else gets an HTML error page. A 404 covers unknown datasets; a 403 covers the same-origin check; unexpected errors are logged and return a 500 page, without leaking stack traces in production.

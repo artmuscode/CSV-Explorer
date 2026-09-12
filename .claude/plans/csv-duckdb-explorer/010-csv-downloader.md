@@ -1,6 +1,6 @@
 # Task 010: CsvDownloader — Core Download, Redirects & Filenames
 
-**Status**: pending
+**Status**: completed
 **Depends on**: 001, 002, 008
 **Retry count**: 0
 
@@ -34,13 +34,13 @@ Create `CsvDownloader`, which fetches a CSV from a URL into a **staged** file in
 - Tests inject `FakeSession` plus a `UrlGuard(resolver=static_resolver(...))`. **No real network.** Use a fake `monotonic` for the deadline test.
 
 ## Requirements (Test Descriptions)
-- [ ] `test_download_stages_body_in_hidden_part_file_and_returns_sanitized_filename`
-- [ ] `test_download_derives_filename_from_url_path_and_ensures_csv_suffix`
-- [ ] `test_download_prefers_content_disposition_filename`
-- [ ] `test_download_does_not_touch_existing_file_with_same_name`
-- [ ] `test_download_raises_ingest_error_on_non_200_status`
-- [ ] `test_download_rejects_html_content_type`
-- [ ] `test_download_rejects_redirect_to_private_address`
+- [x] `test_download_stages_body_in_hidden_part_file_and_returns_sanitized_filename`
+- [x] `test_download_derives_filename_from_url_path_and_ensures_csv_suffix`
+- [x] `test_download_prefers_content_disposition_filename`
+- [x] `test_download_does_not_touch_existing_file_with_same_name`
+- [x] `test_download_raises_ingest_error_on_non_200_status`
+- [x] `test_download_rejects_html_content_type`
+- [x] `test_download_rejects_redirect_to_private_address`
 
 (Timeout, size-cap, deadline and mid-stream-failure tests are in task 020.)
 
@@ -51,4 +51,8 @@ Create `CsvDownloader`, which fetches a CSV from a URL into a **staged** file in
 - Code follows code standards
 
 ## Implementation Notes
-(Left blank - filled in by programmer during implementation)
+- Implemented `app/services/csv_downloader.py` with `DownloadedFile` (frozen/slots dataclass) and `CsvDownloader`. `download()` is split into private helpers: `_fetch_final_response` (redirect loop, re-validating each hop with `UrlGuard`, closing every intermediate 3xx/non-200 response), `_reject_non_csv_content_type`, `_reject_oversized_content_length` (ignores non-integer `Content-Length`), `_stream_to_part_file` (byte-count cap + total `monotonic()` deadline, always unlinking the `.part` file on any `IngestError`/`RequestException`/`OSError` before re-raising as `IngestError`), and `_resolve_filename` (Content-Disposition regex first, else last URL path segment via `unquote` → `secure_filename`, forcing a `.csv` suffix and falling back to `download.csv`).
+- Built `tests/fakes.py` (`FakeResponse`, `FakeSession`, `static_resolver`) exactly to spec; verified all three in an ad-hoc script (chunking, `close()` flag, `calls` recording, unknown-URL `AssertionError`, and `static_resolver`'s `socket.gaierror` fallback).
+- Because the whole `download()` flow (redirects, status, content-type, content-length, filename, streaming with cleanup) had to be implemented as one coherent method per the task's "Split note", requirements 4 (`does_not_touch_existing_file`), 6 (`rejects_html_content_type`) and 7 (`rejects_redirect_to_private_address`) passed immediately once the core flow existed for requirement 1/5 — noted per the TDD rules rather than force-splitting the implementation unnaturally. Every test was still written and confirmed against the module before any code satisfying it was added (module didn't exist until after test 1 was RED; status-code check didn't exist until test 5 was RED).
+- `uv run pytest tests/unit/services/test_csv_downloader.py` (7 passed) and `uv run ruff check` / `uv run ruff format` on the three owned files are clean.
+- Size-cap, deadline and mid-stream-failure tests are intentionally left to task 020 per the split note; the implementation already includes the byte-count and `monotonic()` deadline checks in `_stream_to_part_file` and `Content-Length` pre-check in `_reject_oversized_content_length`, ready for those tests.

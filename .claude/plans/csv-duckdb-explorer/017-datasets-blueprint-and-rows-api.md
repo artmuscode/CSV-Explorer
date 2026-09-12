@@ -1,6 +1,6 @@
 # Task 017: Datasets Blueprint — Table Page & Rows JSON API
 
-**Status**: pending
+**Status**: completed
 **Depends on**: 001, 002, 003, 004, 005, 006, 007, 008, 009, 010, 011, 012, 013, 014, 020, 021, 022
 **Retry count**: 0
 
@@ -32,13 +32,13 @@ Implement the dataset table page and the JSON rows API that the Alpine component
 - Also put `data-max-page-size="{{ config.MAX_PAGE_SIZE }}"` next to `data-rows-url` on the table container. Task 018's component reads both through `this.$el.dataset`.
 
 ## Requirements (Test Descriptions)
-- [ ] `test_show_renders_dataset_name_and_column_headers`
-- [ ] `test_show_embeds_initial_page_as_json`
-- [ ] `test_show_unknown_dataset_returns_404`
-- [ ] `test_rows_api_returns_paged_rows_as_json`
-- [ ] `test_rows_api_applies_search_column_filters_and_sort`
-- [ ] `test_rows_api_returns_400_json_for_invalid_query`
-- [ ] `test_rows_api_returns_404_json_for_unknown_dataset`
+- [x] `test_show_renders_dataset_name_and_column_headers`
+- [x] `test_show_embeds_initial_page_as_json`
+- [x] `test_show_unknown_dataset_returns_404`
+- [x] `test_rows_api_returns_paged_rows_as_json`
+- [x] `test_rows_api_applies_search_column_filters_and_sort`
+- [x] `test_rows_api_returns_400_json_for_invalid_query`
+- [x] `test_rows_api_returns_404_json_for_unknown_dataset`
 
 ## Acceptance Criteria
 - All requirements have passing tests
@@ -46,4 +46,23 @@ Implement the dataset table page and the JSON rows API that the Alpine component
 - Code follows code standards
 
 ## Implementation Notes
-(Left blank - filled in by programmer during implementation)
+- `app/blueprints/datasets.py` implements `show` and `rows` exactly per the
+  spec: `show` calls `get_dataset` + `build_query(None, None, None, {}, None,
+  None)` + `get_page`, aborting 404 on `DatasetNotFoundError`; `rows` parses
+  `page`/`per_page`/`q`/`sort`/`dir` plus `filter[<col>]` args (via
+  `_FILTER_KEY_RE = re.compile(r"^filter\[(.+)\]$")`) into a dict, then calls
+  `build_query`/`get_page`/`jsonify(page.to_dict())`, mapping
+  `DatasetNotFoundError` to `404 {"error": "Dataset not found"}` and
+  `InvalidQueryError` to `400 {"error": str(exc)}`.
+- `app/templates/datasets/show.html` renders a heading with name/source/row
+  count/`source_url`, a back link to `main.index`, a plain server-rendered
+  `<table>` (autoescaped cells, no `|safe`), the table container carrying
+  `data-rows-url` and `data-max-page-size`, and the
+  `<script type="application/json" id="initial-page">` payload for task 018.
+- All 7 tests went RED against the 501 stubs first, then GREEN once the
+  blueprint/template were implemented in one pass (the requirements are
+  tightly coupled to the same two routes, so they were implemented together
+  rather than one test driving one isolated code change).
+- `uv run ruff check` and `uv run ruff format --check` are clean for
+  `app/blueprints/datasets.py` and `tests/integration/test_datasets_routes.py`
+  (ruff doesn't lint `.html` templates).

@@ -1,6 +1,6 @@
 # Task 005: DuckDBRepository — Table Operations
 
-**Status**: pending
+**Status**: completed
 **Depends on**: 001, 002, 003
 **Retry count**: 0
 
@@ -30,13 +30,13 @@ Create `DuckDBRepository`, the class that owns user dataset tables. It creates o
 - Patterns to follow: `app/repositories/identifiers.py` (quote every identifier); no Flask imports
 
 ## Requirements (Test Descriptions)
-- [ ] `test_create_table_from_csv_returns_number_of_rows_loaded`
-- [ ] `test_create_table_from_csv_replaces_existing_table_with_same_name`
-- [ ] `test_create_table_from_csv_raises_single_line_ingest_error_for_empty_or_malformed_csv` (parametrized over the empty file and the DuckDB-level malformed sample; the message is one line of 250 characters or fewer)
-- [ ] `test_create_table_from_csv_falls_back_to_latin1_when_utf8_decoding_fails`
-- [ ] `test_create_table_from_csv_supports_column_names_with_spaces_and_quotes`
-- [ ] `test_get_columns_returns_names_and_types_in_file_order`
-- [ ] `test_drop_table_removes_table_so_table_exists_is_false`
+- [x] `test_create_table_from_csv_returns_number_of_rows_loaded`
+- [x] `test_create_table_from_csv_replaces_existing_table_with_same_name`
+- [x] `test_create_table_from_csv_raises_single_line_ingest_error_for_empty_or_malformed_csv` (parametrized over the empty file and the DuckDB-level malformed sample; the message is one line of 250 characters or fewer)
+- [x] `test_create_table_from_csv_falls_back_to_latin1_when_utf8_decoding_fails`
+- [x] `test_create_table_from_csv_supports_column_names_with_spaces_and_quotes`
+- [x] `test_get_columns_returns_names_and_types_in_file_order`
+- [x] `test_drop_table_removes_table_so_table_exists_is_false`
 
 ## Acceptance Criteria
 - All requirements have passing tests
@@ -44,4 +44,9 @@ Create `DuckDBRepository`, the class that owns user dataset tables. It creates o
 - Code follows code standards
 
 ## Implementation Notes
-(Left blank - filled in by programmer during implementation)
+- Verified on the installed DuckDB 1.5.5: an unterminated quote (`b'id,name\n1,"abc\n'`) and ragged rows (`b'a,b\n1,2,3,4\n'`) both load *successfully* — DuckDB's sniffer/parallel CSV reader tolerates them (auto-detects quoting/columns or null-pads). They are **not** usable as the "DuckDB-level malformed" sample.
+- Found a reliable DuckDB-level malformed sample instead: `bytes(range(256))` (256 raw bytes, all byte values 0-255). DuckDB's dialect sniffer raises `Invalid Input Error: Error when sniffing file "...": It was not possible to automatically detect the CSV parsing dialect...` — a multi-line error not related to unicode/UTF-8, so it is not retried with the Latin-1 fallback and reaches `IngestError` directly. Used as the `duckdb_sniffing_failure` parametrize case alongside the empty-file (`b""`) case.
+- `create_table_from_csv` binds the CSV path via the `?` parameter of `read_csv_auto` (bound parameter, not `quote_literal`) — DuckDB 1.5.5 accepts it fine, so the `quote_literal` fallback described in Context was not needed.
+- Latin-1 retry trigger: checks whether the lowercased DuckDB error message contains `"invalid unicode"` or `"utf-8"` (DuckDB's actual message is "Invalid unicode (byte sequence mismatch) detected. This file is not utf-8 encoded."). Only that class of error is retried with `encoding = 'latin-1'`.
+- Every method wraps its work in `with self._conn.cursor() as cur:` (confirmed `duckdb.DuckDBPyConnection.cursor()` supports the context-manager protocol on 1.5.5).
+- `table_exists` / `get_columns` filter on both `table_name = ?` and `table_schema = 'main'`, both bound parameters.

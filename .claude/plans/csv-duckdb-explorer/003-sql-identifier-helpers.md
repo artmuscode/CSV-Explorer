@@ -1,6 +1,6 @@
 # Task 003: SQL Identifier & Table-Naming Helpers
 
-**Status**: pending
+**Status**: completed
 **Depends on**: 001
 **Retry count**: 0
 
@@ -23,13 +23,13 @@ Add pure helper functions for safely quoting DuckDB identifiers and for deriving
 - No dependency on `app.exceptions`. Callers wrap `ValueError` into `IngestError`.
 
 ## Requirements (Test Descriptions)
-- [ ] `test_quote_identifier_wraps_name_in_double_quotes`
-- [ ] `test_quote_identifier_escapes_embedded_double_quotes`
-- [ ] `test_table_name_from_filename_lowercases_and_drops_csv_extension`
-- [ ] `test_table_name_from_filename_replaces_non_alphanumeric_runs_with_single_underscore`
-- [ ] `test_table_name_from_filename_prefixes_t_when_starting_with_digit`
-- [ ] `test_table_name_from_filename_never_starts_with_underscore`
-- [ ] `test_table_name_from_filename_raises_value_error_when_nothing_usable_remains`
+- [x] `test_quote_identifier_wraps_name_in_double_quotes`
+- [x] `test_quote_identifier_escapes_embedded_double_quotes`
+- [x] `test_table_name_from_filename_lowercases_and_drops_csv_extension`
+- [x] `test_table_name_from_filename_replaces_non_alphanumeric_runs_with_single_underscore`
+- [x] `test_table_name_from_filename_prefixes_t_when_starting_with_digit`
+- [x] `test_table_name_from_filename_never_starts_with_underscore`
+- [x] `test_table_name_from_filename_raises_value_error_when_nothing_usable_remains`
 
 ## Acceptance Criteria
 - All requirements have passing tests
@@ -37,4 +37,16 @@ Add pure helper functions for safely quoting DuckDB identifiers and for deriving
 - No decrease in test coverage
 
 ## Implementation Notes
-(Left blank - filled in by programmer during implementation)
+- Created `app/repositories/identifiers.py` with `quote_identifier`, `quote_literal`, and
+  `table_name_from_filename`, plus empty `app/repositories/__init__.py` (no re-exports, per
+  task instructions) and `tests/unit/repositories/__init__.py`.
+- Added `test_quote_literal_wraps_value_in_single_quotes` and
+  `test_quote_literal_escapes_embedded_single_quotes` in addition to the listed requirements,
+  since `quote_literal` is part of this module's documented contract (used by task 005) and
+  needed test coverage; not part of the original checklist so left un-checkboxed above.
+- `table_name_from_filename` uses `re.sub(r"\.csv$", "", filename, flags=re.IGNORECASE)` to
+  drop the extension, lowercases, replaces non-`[a-z0-9]` runs with `_` via
+  `re.sub(r"[^a-z0-9]+", "_", ...)`, strips leading/trailing `_`, prefixes `t_` if the result
+  starts with a digit, and raises `ValueError` if nothing remains.
+- `uv run pytest tests/unit/repositories/test_identifiers.py -v`: 9 passed.
+- `uv run ruff check` and `uv run ruff format --check` on all new files: clean.

@@ -1,6 +1,6 @@
 # Task 012: CsvIngestService — Folder Scan
 
-**Status**: pending
+**Status**: completed
 **Depends on**: 001, 002, 003, 005, 007, 011
 **Retry count**: 0
 
@@ -21,13 +21,13 @@ Add `scan_folder` to `CsvIngestService`. It ingests new or changed CSVs from the
 - **Tests:** real in-memory repositories, a `tmp_path` csv_dir and a fixed clock. The unloadable file is the canonical 0-byte CSV from task 005. To simulate a changed file, rewrite it and use `os.utime` to set a different mtime. To simulate a deletion, call `metadata.mark_deleted(name, clock())` and `repository.drop_table(name)` directly; `DatasetService` is in a parallel task.
 
 ## Requirements (Test Descriptions)
-- [ ] `test_scan_folder_ingests_new_csv_files`
-- [ ] `test_scan_folder_skips_files_unchanged_since_last_ingest`
-- [ ] `test_scan_folder_reingests_files_whose_size_or_mtime_changed`
-- [ ] `test_scan_folder_does_not_resurrect_deleted_dataset_until_its_file_changes`
-- [ ] `test_scan_folder_collects_errors_for_bad_files_and_continues`
-- [ ] `test_scan_folder_ignores_non_csv_hidden_partial_and_glob_character_files`
-- [ ] `test_scan_folder_reports_table_name_collision_and_is_stable_across_rescans` (`my-data.csv` and `my_data.csv`: the first scan ingests one and reports the other; the second scan ingests nothing)
+- [x] `test_scan_folder_ingests_new_csv_files`
+- [x] `test_scan_folder_skips_files_unchanged_since_last_ingest`
+- [x] `test_scan_folder_reingests_files_whose_size_or_mtime_changed`
+- [x] `test_scan_folder_does_not_resurrect_deleted_dataset_until_its_file_changes`
+- [x] `test_scan_folder_collects_errors_for_bad_files_and_continues`
+- [x] `test_scan_folder_ignores_non_csv_hidden_partial_and_glob_character_files`
+- [x] `test_scan_folder_reports_table_name_collision_and_is_stable_across_rescans` (`my-data.csv` and `my_data.csv`: the first scan ingests one and reports the other; the second scan ingests nothing)
 
 ## Acceptance Criteria
 - All requirements have passing tests
@@ -35,4 +35,16 @@ Add `scan_folder` to `CsvIngestService`. It ingests new or changed CSVs from the
 - No decrease in test coverage
 
 ## Implementation Notes
-(Left blank - filled in by programmer during implementation)
+Resumed after an interrupted session. `scan_folder` in `app/services/csv_ingest_service.py` was already
+fully implemented (error collection, glob-character rejection, table-name collision detection, and
+skip-unchanged-including-deleted) by the previous worker, even though only the first four requirement
+checkboxes were ticked. For the remaining three requirements, added the corresponding tests to
+`tests/unit/services/test_csv_ingest_service.py`:
+- `test_scan_folder_collects_errors_for_bad_files_and_continues`
+- `test_scan_folder_ignores_non_csv_hidden_partial_and_glob_character_files`
+- `test_scan_folder_reports_table_name_collision_and_is_stable_across_rescans`
+
+All three passed immediately against the existing implementation (no production code changes were
+needed) — the prior worker had implemented ahead of the checked-off requirements. Ran `uv run ruff
+format` on `app/services/csv_ingest_service.py` to fix one line-length wrap in the collision-error
+message; `ruff check` was already clean. Full file test suite: 15 passed.

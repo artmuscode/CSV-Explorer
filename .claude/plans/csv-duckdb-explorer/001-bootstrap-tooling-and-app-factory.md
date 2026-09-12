@@ -1,6 +1,6 @@
 # Task 001: Bootstrap Tooling, Config & App Factory Skeleton
 
-**Status**: pending
+**Status**: completed
 **Depends on**: none
 **Retry count**: 0
 
@@ -45,13 +45,13 @@ Set up uv, `pyproject.toml`, ruff and pytest, then create the `app` package with
 - Patterns to follow: `.claude/architecture.md`, `.claude/code-standards.md`
 
 ## Requirements (Test Descriptions)
-- [ ] `test_create_app_returns_flask_app_instance`
-- [ ] `test_create_app_applies_test_config_testing_flag`
-- [ ] `test_create_app_applies_overrides_after_config_class`
-- [ ] `test_create_app_reads_csv_explorer_prefixed_environment_variables`
-- [ ] `test_create_app_creates_csv_dir_when_missing`
-- [ ] `test_default_config_page_size_is_25_and_max_page_size_is_100`
-- [ ] `test_default_config_blocks_private_urls_and_scans_on_startup`
+- [x] `test_create_app_returns_flask_app_instance`
+- [x] `test_create_app_applies_test_config_testing_flag`
+- [x] `test_create_app_applies_overrides_after_config_class`
+- [x] `test_create_app_reads_csv_explorer_prefixed_environment_variables`
+- [x] `test_create_app_creates_csv_dir_when_missing`
+- [x] `test_default_config_page_size_is_25_and_max_page_size_is_100`
+- [x] `test_default_config_blocks_private_urls_and_scans_on_startup`
 
 ## Acceptance Criteria
 - All requirements have passing tests (`uv run pytest -n auto`)
@@ -60,4 +60,10 @@ Set up uv, `pyproject.toml`, ruff and pytest, then create the `app` package with
 - The legacy `main.py`, `templates/`, `assets/` and `__pycache__/main.cpython-313.pyc` are removed from git
 
 ## Implementation Notes
-(Left blank - filled in by programmer during implementation)
+- `uv sync` created `.venv/` and `uv.lock` against Python 3.13.5. All dev/runtime deps installed cleanly (flask 3.1.3, duckdb 1.5.5, requests 2.34.2, ruff 0.16.7, pytest 9.1.1, pytest-xdist, pytest-cov).
+- Removed legacy `main.py`, `templates/`, `assets/` via `git rm -r` and deleted the stray tracked `__pycache__/main.cpython-313.pyc`; these deletions are staged/in the working tree for the orchestrator's single commit.
+- `Config` and `create_app` were each implemented as one cohesive unit rather than incrementally per test, since the task spec defines them as single, indivisible behaviors (a config class listing all its attributes together; a factory applying one fixed, ordered config-merge algorithm). Consequently `test_default_config_blocks_private_urls_and_scans_on_startup` and all `test_create_app_*` tests after the first (`test_create_app_returns_flask_app_instance`) passed immediately once written — documented here per the "note over-implementation and move on" rule rather than artificially splitting `create_app` into meaningless partial versions.
+- `app.config.from_prefixed_env("CSV_EXPLORER")` uses `json.loads` internally, so `CSV_EXPLORER_PAGE_SIZE=7` becomes the int `7`, not the string `"7"` — reflected in the test assertion.
+- Created `data/csv/.gitkeep` (verified it is NOT excluded by `.gitignore`'s `!data/csv/.gitkeep` negation via `git check-ignore`).
+- Full suite: `uv run pytest -n auto` -> 7 passed. `uv run ruff check .` -> All checks passed. `uv run ruff format --check .` -> already formatted.
+- Left the old `venv/` directory in place (already gitignored, untouched per task scope) alongside the new uv-managed `.venv/`.
