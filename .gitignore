@@ -16,6 +16,9 @@ htmlcov/
 # OS
 .DS_Store
 
+# Local secrets (e.g. CSV_EXPLORER_SECRET_KEY for docker compose)
+.env
+
 # App data (CSV drop folder contents stay local; .gitkeep keeps the folder)
 data/*.duckdb
 data/*.duckdb.wal
