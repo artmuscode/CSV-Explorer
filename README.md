@@ -79,6 +79,30 @@ that does serve requests fail with a lock error. In practice this means the
 "scan the drop folder on startup" behavior (`SCAN_ON_STARTUP`, on by
 default) runs on the first page load, not the moment the process starts.
 
+## Running with Docker
+
+The image builds its own Tailwind CSS (Linux binary, version from
+`.tailwind-version`), so no local `bin/tailwindcss` is needed.
+
+```bash
+export CSV_EXPLORER_SECRET_KEY=$(openssl rand -hex 32)
+docker compose up --build
+```
+
+Then open http://localhost:8000/. Notes:
+
+- `./data` is bind-mounted to `/app/data`, so the DuckDB file and the CSV drop
+  folder persist across rebuilds, and files dropped into `data/csv/` on the
+  host are picked up by the startup scan.
+- Don't run the dev server and the container on the same `data/` at once:
+  DuckDB's exclusive file lock lets only one process open `app.duckdb`.
+- The container runs gunicorn with **one worker** (4 threads) for the same
+  reason. Don't raise `--workers`.
+- Any `CSV_EXPLORER_*` environment variable overrides config, e.g.
+  `CSV_EXPLORER_PAGE_SIZE=50`.
+- The app runs as the non-root user `app` (uid 1000). On a Linux host, make
+  sure `./data` is writable by that uid.
+
 ## Usage
 
 - **Drop folder**: put `.csv` files in `data/csv/`, then click "Scan
