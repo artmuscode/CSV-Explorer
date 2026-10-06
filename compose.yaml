@@ -1,0 +1,12 @@
+services:
+  web:
+    build: .
+    image: csv-explorer
+    ports:
+      - "8000:8000"
+    environment:
+      CSV_EXPLORER_SECRET_KEY: ${CSV_EXPLORER_SECRET_KEY:?Set CSV_EXPLORER_SECRET_KEY}
+    volumes:
+      # DuckDB file + CSV drop folder live on the host so they survive rebuilds.
+      - ./data:/app/data
+    restart: unless-stopped
