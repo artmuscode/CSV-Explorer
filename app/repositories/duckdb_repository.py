@@ -5,6 +5,7 @@ requests handled by different threads never share a cursor's state.
 """
 
 import math
+from collections.abc import Iterator
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -17,11 +18,13 @@ from app.exceptions import DatasetNotFoundError, IngestError
 from app.models.column import Column
 from app.models.page import Page
 from app.models.row_query import RowQuery
+from app.models.row_stream import RowStream
 from app.repositories.identifiers import quote_identifier
 from app.repositories.row_query_builder import RowQueryBuilder
 
 _MAX_ERROR_MESSAGE_LENGTH = 200
 _UNICODE_ERROR_MARKERS = ("invalid unicode", "utf-8")
+_STREAM_BATCH_SIZE = 1000
 
 
 class DuckDBRepository:
@@ -121,6 +124,53 @@ class DuckDBRepository:
         ]
 
         return Page(rows, columns, query.page, query.per_page, total)
+
+    def stream_rows(self, table: str, query: RowQuery) -> RowStream:
+        """Return every row matching `query`, streamed in batches, unpaged.
+
+        `query`'s `page`/`per_page` are ignored; its search, filters and sort
+        are not. Validation and the initial execute happen eagerly, so a bad
+        table or column raises here rather than part way through iteration
+        (which, for an HTTP export, would be after the response has started).
+
+        Raises:
+            DatasetNotFoundError: if `table` does not exist.
+            InvalidQueryError: if `query` references an unknown column.
+        """
+        if not self.table_exists(table):
+            raise DatasetNotFoundError(f"Dataset not found: {table!r}")
+
+        columns = self.get_columns(table)
+        built = self._query_builder.build_export(table, columns, query)
+
+        cursor = self._conn.cursor()
+        try:
+            cursor.execute(built.sql, built.params)
+        except Exception:
+            cursor.close()
+            raise
+
+        column_names = [column.name for column in columns]
+        return RowStream(columns=columns, rows=self._iter_rows(cursor, column_names))
+
+    def _iter_rows(
+        self, cursor: duckdb.DuckDBPyConnection, column_names: list[str]
+    ) -> Iterator[dict[str, Any]]:
+        """Yield `cursor`'s remaining rows as dicts, closing it when done.
+
+        The `finally` also covers an abandoned generator (the consumer stops
+        early, or an export's client disconnects), so the cursor is never
+        left open.
+        """
+        try:
+            while batch := cursor.fetchmany(_STREAM_BATCH_SIZE):
+                for row in batch:
+                    yield {
+                        name: self._to_json_safe(value)
+                        for name, value in zip(column_names, row, strict=True)
+                    }
+        finally:
+            cursor.close()
 
     def _to_json_safe(self, value: Any) -> Any:
         if isinstance(value, datetime | date | time):

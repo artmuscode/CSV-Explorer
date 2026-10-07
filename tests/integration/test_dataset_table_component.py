@@ -90,6 +90,21 @@ def test_show_loads_dataset_table_script_before_alpine(client, ingested):
     assert "defer" in dataset_table_attrs
 
 
+def test_show_renders_export_link_bound_to_the_live_filter_state(client, ingested):
+    ingested("people.csv", _csv_with_rows(5))
+
+    response = client.get("/datasets/people")
+    body = response.get_data(as_text=True)
+    parser = _parse(body)
+
+    mount = parser.find("div", **{"x-data": "datasetTable"})
+    assert mount is not None
+    assert mount["data-export-url"] == "/datasets/people/export.csv"
+
+    export_link = parser.find("a", **{":href": "exportHref"})
+    assert export_link is not None
+
+
 def test_show_renders_filter_inputs_bound_to_columns_via_x_for(client, ingested):
     ingested("people.csv", _csv_with_rows(5))
 

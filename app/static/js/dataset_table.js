@@ -3,20 +3,21 @@
  *
  * Drives the interactive dataset table on `datasets/show.html`: a debounced
  * global search, per-column filters, click-to-sort headers, a page-size
- * selector and pagination controls. Every change re-fetches rows from the
- * server-side rows JSON API, so all filtering/sorting/paging happens on the
- * server.
+ * selector, pagination controls and a CSV export link. Every change
+ * re-fetches rows from the server-side rows JSON API, so all
+ * filtering/sorting/paging happens on the server.
  *
  * Takes no arguments: `x-data="datasetTable"`. Configuration comes from
- * `data-rows-url` / `data-max-page-size` on the mounted element, and the
- * initial page of rows comes from the `#initial-page` JSON script tag. See
- * `app/templates/datasets/show.html`.
+ * `data-rows-url` / `data-export-url` / `data-max-page-size` on the mounted
+ * element, and the initial page of rows comes from the `#initial-page` JSON
+ * script tag. See `app/templates/datasets/show.html`.
  */
 document.addEventListener("alpine:init", () => {
   const DEBOUNCE_MS = 300;
 
   Alpine.data("datasetTable", () => ({
     rowsUrl: "",
+    exportUrl: "",
     maxPageSize: 0,
     columns: [],
     rows: [],
@@ -36,6 +37,7 @@ document.addEventListener("alpine:init", () => {
 
     init() {
       this.rowsUrl = this.$el.dataset.rowsUrl;
+      this.exportUrl = this.$el.dataset.exportUrl;
       this.maxPageSize = Number(this.$el.dataset.maxPageSize);
 
       const initial = JSON.parse(document.getElementById("initial-page").textContent);
@@ -69,10 +71,12 @@ document.addEventListener("alpine:init", () => {
       }, DEBOUNCE_MS);
     },
 
-    _buildParams() {
+    _buildParams(includePaging = true) {
       const params = new URLSearchParams();
-      params.set("page", String(this.page));
-      params.set("per_page", String(this.perPage));
+      if (includePaging) {
+        params.set("page", String(this.page));
+        params.set("per_page", String(this.perPage));
+      }
       if (this.search) {
         params.set("q", this.search);
       }
@@ -154,6 +158,14 @@ document.addEventListener("alpine:init", () => {
       for (const column of this.columns) {
         this.filters[column.name] = "";
       }
+    },
+
+    get exportHref() {
+      // Paging is left off on purpose: the export covers every matching row,
+      // not just the page on screen.
+      const params = this._buildParams(false);
+      const queryString = params.toString();
+      return queryString ? `${this.exportUrl}?${queryString}` : this.exportUrl;
     },
 
     get rangeStart() {

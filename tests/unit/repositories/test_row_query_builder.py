@@ -76,6 +76,36 @@ def test_build_column_filters_are_combined_with_and(connection, builder):
     assert total == 1
 
 
+def test_build_column_filters_match_only_from_the_start_of_a_value(connection, builder):
+    connection.execute("CREATE TABLE readings (amount INTEGER, label VARCHAR)")
+    connection.executemany(
+        "INSERT INTO readings VALUES (?, ?)",
+        [(0, "zero"), (100, "hundred"), (10, "ten"), (-100, "minus"), (1, "one")],
+    )
+    columns = [Column(name="amount", type="INTEGER"), Column(name="label", type="VARCHAR")]
+
+    built = builder.build("readings", columns, RowQuery(filters={"amount": "0"}))
+    rows, total = _fetch(connection, built)
+
+    assert rows == [(0, "zero")]
+    assert total == 1
+
+
+def test_build_global_search_still_matches_anywhere_in_a_value(connection, builder):
+    connection.execute("CREATE TABLE readings (amount INTEGER, label VARCHAR)")
+    connection.executemany(
+        "INSERT INTO readings VALUES (?, ?)",
+        [(0, "zero"), (100, "hundred"), (10, "ten")],
+    )
+    columns = [Column(name="amount", type="INTEGER"), Column(name="label", type="VARCHAR")]
+
+    built = builder.build("readings", columns, RowQuery(search="0"))
+    rows, total = _fetch(connection, built)
+
+    assert rows == [(0, "zero"), (100, "hundred"), (10, "ten")]
+    assert total == 3
+
+
 def test_build_treats_percent_and_underscore_in_user_input_literally(connection, builder):
     connection.execute("CREATE TABLE deals (description VARCHAR)")
     connection.executemany(
@@ -90,6 +120,25 @@ def test_build_treats_percent_and_underscore_in_user_input_literally(connection,
     assert total == 1
 
     built = builder.build("deals", columns, RowQuery(search="a_b"))
+    rows, total = _fetch(connection, built)
+    assert rows == [("a_b",)]
+    assert total == 1
+
+
+def test_build_treats_percent_and_underscore_in_column_filters_literally(connection, builder):
+    connection.execute("CREATE TABLE deals (description VARCHAR)")
+    connection.executemany(
+        "INSERT INTO deals VALUES (?)",
+        [("50% off",), ("50X off",), ("a_b",), ("axb",)],
+    )
+    columns = [Column(name="description", type="VARCHAR")]
+
+    built = builder.build("deals", columns, RowQuery(filters={"description": "50%"}))
+    rows, total = _fetch(connection, built)
+    assert rows == [("50% off",)]
+    assert total == 1
+
+    built = builder.build("deals", columns, RowQuery(filters={"description": "a_"}))
     rows, total = _fetch(connection, built)
     assert rows == [("a_b",)]
     assert total == 1
@@ -134,3 +183,48 @@ def test_build_raises_invalid_query_error_for_unknown_sort_column(connection, bu
 
     with pytest.raises(InvalidQueryError):
         builder.build("people", columns, RowQuery(sort_by="bogus"))
+
+
+def test_build_export_returns_every_matching_row_ignoring_paging(connection, builder):
+    connection.execute("CREATE TABLE people (id INTEGER, name VARCHAR)")
+    connection.executemany(
+        "INSERT INTO people VALUES (?, ?)",
+        [(1, "Alice"), (2, "Bob"), (3, "Alan"), (4, "Carol"), (5, "Amy")],
+    )
+    columns = [Column(name="id", type="INTEGER"), Column(name="name", type="VARCHAR")]
+    query = RowQuery(
+        page=2,
+        per_page=2,
+        filters={"name": "a"},
+        sort_by="name",
+        sort_dir=SortDirection.ASC,
+    )
+
+    built = builder.build_export("people", columns, query)
+    rows = connection.execute(built.sql, built.params).fetchall()
+
+    assert "LIMIT" not in built.sql.upper()
+    assert "OFFSET" not in built.sql.upper()
+    assert rows == [(3, "Alan"), (1, "Alice"), (5, "Amy")]
+
+
+def test_build_export_uses_the_same_where_and_order_by_as_build(connection, builder):
+    columns = [Column(name="id", type="INTEGER"), Column(name="name", type="VARCHAR")]
+    query = RowQuery(search="a", filters={"name": "b"}, sort_by="name", sort_dir=SortDirection.DESC)
+
+    paged = builder.build("people", columns, query)
+    export = builder.build_export("people", columns, query)
+
+    assert export.sql == paged.select_sql.removesuffix(" LIMIT ? OFFSET ?")
+    assert export.params == paged.select_params[:-2]
+
+
+@pytest.mark.parametrize(
+    "query",
+    [RowQuery(filters={"bogus": "x"}), RowQuery(sort_by="bogus")],
+)
+def test_build_export_raises_invalid_query_error_for_unknown_columns(connection, builder, query):
+    columns = [Column(name="name", type="VARCHAR")]
+
+    with pytest.raises(InvalidQueryError):
+        builder.build_export("people", columns, query)

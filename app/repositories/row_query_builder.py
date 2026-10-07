@@ -32,6 +32,14 @@ class BuiltQuery:
     count_params: list[Any]
 
 
+@dataclass(frozen=True, slots=True)
+class BuiltExport:
+    """An unpaginated parameterized SELECT produced by `RowQueryBuilder`."""
+
+    sql: str
+    params: list[Any]
+
+
 class RowQueryBuilder:
     """Builds parameterized SELECT and COUNT SQL from a table, its columns and a RowQuery."""
 
@@ -40,21 +48,40 @@ class RowQueryBuilder:
         self._validate(query, column_names)
 
         where_sql, where_params = self._build_where(columns, query)
-        order_sql = self._build_order_by(columns, query)
-        quoted_table = quote_identifier(table)
+        select_sql = self._build_select(table, columns, query, where_sql)
 
-        select_sql = f"SELECT * FROM {quoted_table}{where_sql} {order_sql} LIMIT ? OFFSET ?"
-        select_params = [*where_params, query.per_page, query.offset]
-
-        count_sql = f"SELECT COUNT(*) FROM {quoted_table}{where_sql}"
-        count_params = list(where_params)
+        count_sql = f"SELECT COUNT(*) FROM {quote_identifier(table)}{where_sql}"
 
         return BuiltQuery(
-            select_sql=select_sql,
-            select_params=select_params,
+            select_sql=f"{select_sql} LIMIT ? OFFSET ?",
+            select_params=[*where_params, query.per_page, query.offset],
             count_sql=count_sql,
-            count_params=count_params,
+            count_params=list(where_params),
         )
+
+    def build_export(self, table: str, columns: list[Column], query: RowQuery) -> BuiltExport:
+        """Build the same filtered, sorted SELECT as `build`, without paging.
+
+        Used by exports, which cover every matching row rather than one page.
+
+        Raises:
+            InvalidQueryError: if `query` references an unknown column.
+        """
+        column_names = {column.name for column in columns}
+        self._validate(query, column_names)
+
+        where_sql, where_params = self._build_where(columns, query)
+
+        return BuiltExport(
+            sql=self._build_select(table, columns, query, where_sql),
+            params=list(where_params),
+        )
+
+    def _build_select(
+        self, table: str, columns: list[Column], query: RowQuery, where_sql: str
+    ) -> str:
+        order_sql = self._build_order_by(columns, query)
+        return f"SELECT * FROM {quote_identifier(table)}{where_sql} {order_sql}"
 
     def _validate(self, query: RowQuery, column_names: set[str]) -> None:
         for name in query.filters:
@@ -75,9 +102,11 @@ class RowQueryBuilder:
                 params.append(pattern)
             clauses.append("(" + " OR ".join(search_clauses) + ")")
 
+        # Column filters anchor at the start of the value: filtering a numeric
+        # column by "0" should match 0, not 100.
         for name, value in query.filters.items():
             clauses.append(self._like_clause(name))
-            params.append(f"%{_escape_like_term(value)}%")
+            params.append(f"{_escape_like_term(value)}%")
 
         if not clauses:
             return "", []

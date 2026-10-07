@@ -12,6 +12,7 @@ from app.exceptions import DatasetNotFoundError, InvalidQueryError
 from app.models.dataset import Dataset
 from app.models.page import Page
 from app.models.row_query import RowQuery, SortDirection
+from app.models.row_stream import RowStream
 from app.repositories.duckdb_repository import DuckDBRepository
 from app.repositories.metadata_repository import MetadataRepository
 
@@ -60,6 +61,19 @@ class DatasetService:
         """
         self.get_dataset(name)
         return self._repository.fetch_page(name, query)
+
+    def export_rows(self, name: str, query: RowQuery) -> RowStream:
+        """Return every row of `name` matching `query`, unpaged, for export.
+
+        `query`'s search, filters and sort still apply; its paging does not.
+
+        Raises:
+            DatasetNotFoundError: if there is no record for `name`, or the
+                record is marked deleted.
+            InvalidQueryError: if `query` references an unknown column.
+        """
+        self.get_dataset(name)
+        return self._repository.stream_rows(name, query)
 
     def build_query(
         self,
