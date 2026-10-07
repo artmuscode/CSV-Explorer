@@ -236,3 +236,6 @@ confirming by hand:
 
 This is best-effort automation; the checklist above is pending a manual
 pass in a real browser.
+
+## HCF
+https://github.com/markshust/hcf
