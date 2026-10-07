@@ -16,6 +16,8 @@ as a paginated, searchable, sortable, filterable HTML table.
 - Renders every dataset as a table with global search, per-column filters,
   sortable columns, and server-side pagination, backed by parameterized SQL
   against DuckDB.
+- Exports whatever the current search, filters and sort select as a new CSV
+  file, covering the whole matching result set rather than the visible page.
 - Lets you delete a dataset (its table is dropped; the CSV file itself and a
   "this was deleted" marker are kept, so a folder rescan won't silently
   bring it back).
@@ -121,6 +123,15 @@ Then open http://localhost:8000/. Notes:
   server-side: `GET /api/datasets/<name>/rows` does the searching, filtering,
   sorting, and paging, so it works correctly over the whole dataset, not
   just the currently loaded page.
+- **Matching rules**: the global search box matches anywhere in a value, so
+  `0` finds `100`. The per-column boxes anchor to the **start** of the
+  value, so `0` matches `0` and `0.5` but not `100`. Both are
+  case-insensitive, and `%` and `_` are matched literally.
+- **Exporting**: the "Export CSV" button downloads
+  `GET /datasets/<name>/export.csv` with the current search, filters and
+  sort applied. Paging is deliberately ignored, so the file holds every
+  matching row, not just the page on screen. The response is streamed, so
+  exporting a large dataset doesn't load it all into memory.
 - **Deleting**: the "Delete" button on the home page drops the dataset's
   table but keeps its CSV file on disk (see Known Limitations below).
 
@@ -210,7 +221,10 @@ neither drives an actual browser. If you have one handy, it's worth
 confirming by hand:
 
 - [ ] Global search box filters rows across all columns as you type
-- [ ] Per-column filter inputs (under each header) narrow results further
+- [ ] Per-column filter inputs (under each header) narrow results further,
+      matching only from the start of a value (typing `0` doesn't match `100`)
+- [ ] "Export CSV" downloads every row matching the current search/filters/sort,
+      across all pages, and the file opens cleanly in a spreadsheet
 - [ ] Clicking a column header sorts by it; clicking again reverses direction
 - [ ] The sort indicator (^/v) shows on the active sort column
 - [ ] Changing "Rows per page" reloads the table with the new page size

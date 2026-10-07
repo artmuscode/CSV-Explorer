@@ -106,6 +106,38 @@ def test_get_page_returns_filtered_page_from_repository(service, repository, met
     assert page.rows == [{"id": 2, "name": "Bob"}]
 
 
+@pytest.mark.parametrize("scenario", ["unknown", "deleted"])
+def test_export_rows_raises_dataset_not_found_for_unknown_or_deleted_dataset(
+    service, repository, metadata, tmp_path, scenario
+):
+    if scenario == "deleted":
+        make_dataset(repository, metadata, tmp_path, "gone", "id\n1\n")
+        metadata.mark_deleted("gone", FIXED_NOW)
+        name = "gone"
+    else:
+        name = "does_not_exist"
+
+    with pytest.raises(DatasetNotFoundError):
+        service.export_rows(name, RowQuery())
+
+
+def test_export_rows_returns_all_filtered_rows_ignoring_paging(
+    service, repository, metadata, tmp_path
+):
+    make_dataset(
+        repository,
+        metadata,
+        tmp_path,
+        "people",
+        "id,name\n1,Alice\n2,Bob\n3,Alan\n",
+    )
+
+    stream = service.export_rows("people", RowQuery(page=2, per_page=1, filters={"name": "Al"}))
+
+    assert stream.column_names == ["id", "name"]
+    assert list(stream.rows) == [{"id": 1, "name": "Alice"}, {"id": 3, "name": "Alan"}]
+
+
 def test_build_query_clamps_per_page_to_max_page_size(service):
     query = service.build_query(
         page=None, per_page="9999", search=None, filters={}, sort_by=None, sort_dir=None

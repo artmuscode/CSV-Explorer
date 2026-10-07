@@ -26,12 +26,15 @@ app/
                            #   file_size, file_mtime, deleted_at) + DatasetSource enum (folder/upload/url)
     row_query.py           # RowQuery(page, per_page, search, filters, sort_by, sort_dir) + SortDirection
     page.py                # Page(rows, columns, page, per_page, total) + total_pages/has_next/has_prev/to_dict
+    row_stream.py          # RowStream(columns, rows): unpaged, lazily batched rows for CSV export
     ingest_result.py       # IngestResult(dataset, replaced), ScanResult(ingested, skipped, errors)
   repositories/
     identifiers.py         # quote_identifier, quote_literal, table_name_from_filename
     duckdb_repository.py   # DuckDBRepository: create_table_from_csv, table_exists, get_columns,
-                           #   count_rows, drop_table, fetch_page(table, RowQuery) -> Page
-    row_query_builder.py   # RowQueryBuilder: RowQuery -> parameterized SELECT + COUNT (search/filter/sort)
+                           #   count_rows, drop_table, fetch_page(table, RowQuery) -> Page,
+                           #   stream_rows(table, RowQuery) -> RowStream
+    row_query_builder.py   # RowQueryBuilder: RowQuery -> parameterized SELECT + COUNT (search/filter/sort),
+                           #   plus build_export -> the same SELECT without LIMIT/OFFSET
     metadata_repository.py # MetadataRepository: _datasets table (ensure_schema, upsert, get, list_all,
                            #   mark_deleted — deletion markers keep deleted files from being re-scanned)
   services/
@@ -40,12 +43,14 @@ app/
                            #   into a staged .part file → DownloadedFile(path, filename)
     csv_ingest_service.py  # CsvIngestService: ingest_file, save_upload, install_and_ingest (rollback), scan_folder
     url_ingest_service.py  # UrlIngestService: download → CsvIngestService.install_and_ingest
-    dataset_service.py     # DatasetService: list_datasets, get_dataset, build_query, get_page, delete_dataset
+    dataset_service.py     # DatasetService: list_datasets, get_dataset, build_query, get_page, export_rows,
+                           #   delete_dataset
   blueprints/
     __init__.py            # register_blueprints(app)
     main.py                # GET / (dataset list + ingest forms), POST /datasets/<name>/delete
     ingest.py              # POST /ingest/upload, /ingest/url, /ingest/scan
-    datasets.py            # GET /datasets/<name> (HTML), GET /api/datasets/<name>/rows (JSON)
+    datasets.py            # GET /datasets/<name> (HTML), GET /api/datasets/<name>/rows (JSON),
+                           #   GET /datasets/<name>/export.csv (streamed CSV download)
   templates/
     base.html              # layout, Tailwind CSS, Alpine.js
     partials/              # header, footer, flash_messages
@@ -101,7 +106,14 @@ blueprints  →  services  →  repository  →  DuckDB
 4. `DatasetService.build_query` validates paging and sort direction. `RowQueryBuilder` checks the columns against the schema and produces a parameterized `WHERE ... ILIKE ?` with `ORDER BY ... , rowid` and `LIMIT/OFFSET`, plus a matching `COUNT(*)`.
 5. The JSON response carries `{rows, columns, page, per_page, total, total_pages}`, and Alpine re-renders the table body and pagination.
 
+Matching rules differ by control: the global search binds `%term%` (matches anywhere), while each per-column filter binds `term%` (anchored to the start of the value, so filtering a numeric column by `0` matches `0`, not `100`). Both are case-insensitive, and `\`, `%`, `_` in user input are escaped so they match literally.
+
 Pagination and filtering both run **server-side**, so filters apply across the whole dataset, not just the visible page.
+
+**Export**
+1. The Alpine component's `exportHref` rebuilds the current query string **without** paging and points the "Export CSV" link at `GET /datasets/<name>/export.csv`.
+2. The route reuses `DatasetService.build_query`, then `export_rows` → `DuckDBRepository.stream_rows`, which validates the table and columns eagerly (so a bad request fails before the response starts) and returns a `RowStream`.
+3. `RowStream.rows` is a generator that `fetchmany`s in batches and closes its cursor when exhausted or abandoned. The blueprint writes it out with `csv.DictWriter`, flushing every few hundred rows, inside a `stream_with_context` response with a `Content-Disposition` attachment header.
 
 ## Conventions
 - One primary class per file. Tests mirror source structure.

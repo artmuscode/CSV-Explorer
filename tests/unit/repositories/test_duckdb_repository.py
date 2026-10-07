@@ -3,9 +3,10 @@ import json
 import duckdb
 import pytest
 
-from app.exceptions import DatasetNotFoundError, IngestError
-from app.models.row_query import RowQuery
+from app.exceptions import DatasetNotFoundError, IngestError, InvalidQueryError
+from app.models.row_query import RowQuery, SortDirection
 from app.repositories.duckdb_repository import DuckDBRepository
+from app.repositories.row_query_builder import BuiltExport
 
 
 @pytest.fixture
@@ -185,3 +186,89 @@ def test_fetch_page_beyond_last_page_returns_empty_rows_with_total(repository, t
 
     assert page.rows == []
     assert page.total == 2
+
+
+def test_stream_rows_returns_columns_and_every_filtered_row_ignoring_paging(repository, tmp_path):
+    csv_path = tmp_path / "people.csv"
+    csv_path.write_text("id,name\n1,Alice\n2,Bob\n3,Alan\n4,Carol\n5,Amy\n")
+    repository.create_table_from_csv("people", csv_path)
+    query = RowQuery(
+        page=2,
+        per_page=2,
+        filters={"name": "a"},
+        sort_by="name",
+        sort_dir=SortDirection.ASC,
+    )
+
+    stream = repository.stream_rows("people", query)
+
+    assert [column.name for column in stream.columns] == ["id", "name"]
+    assert list(stream.rows) == [
+        {"id": 3, "name": "Alan"},
+        {"id": 1, "name": "Alice"},
+        {"id": 5, "name": "Amy"},
+    ]
+
+
+def test_stream_rows_yields_rows_spanning_more_than_one_fetch_batch(repository, tmp_path):
+    row_count = 2500
+    csv_path = tmp_path / "numbers.csv"
+    csv_path.write_text("id\n" + "\n".join(str(n) for n in range(1, row_count + 1)) + "\n")
+    repository.create_table_from_csv("numbers", csv_path)
+
+    rows = list(repository.stream_rows("numbers", RowQuery()).rows)
+
+    assert len(rows) == row_count
+    assert rows[0] == {"id": 1}
+    assert rows[-1] == {"id": row_count}
+
+
+def test_stream_rows_normalizes_values_the_same_way_fetch_page_does(repository):
+    repository._conn.execute("CREATE TABLE events (event_ts TIMESTAMP, amount DECIMAL(10,2))")
+    repository._conn.execute("INSERT INTO events VALUES (?, ?)", ["2024-01-15 10:30:00", 19.99])
+
+    rows = list(repository.stream_rows("events", RowQuery()).rows)
+
+    assert rows == [{"event_ts": "2024-01-15T10:30:00", "amount": "19.99"}]
+
+
+def test_stream_rows_raises_dataset_not_found_before_iteration_starts(repository):
+    with pytest.raises(DatasetNotFoundError):
+        repository.stream_rows("does_not_exist", RowQuery())
+
+
+def test_stream_rows_raises_invalid_query_error_before_iteration_starts(repository, tmp_path):
+    csv_path = tmp_path / "people.csv"
+    csv_path.write_text("id,name\n1,Alice\n")
+    repository.create_table_from_csv("people", csv_path)
+
+    with pytest.raises(InvalidQueryError):
+        repository.stream_rows("people", RowQuery(filters={"bogus": "x"}))
+
+
+def test_stream_rows_closes_its_cursor_and_propagates_when_the_query_fails(connection, tmp_path):
+    class _BrokenQueryBuilder:
+        def build_export(self, table, columns, query):
+            return BuiltExport(sql="SELECT * FROM no_such_table", params=[])
+
+    repository = DuckDBRepository(connection, query_builder=_BrokenQueryBuilder())
+    csv_path = tmp_path / "people.csv"
+    csv_path.write_text("id,name\n1,Alice\n")
+    repository.create_table_from_csv("people", csv_path)
+
+    with pytest.raises(duckdb.Error):
+        repository.stream_rows("people", RowQuery())
+
+    assert repository.count_rows("people") == 1
+
+
+def test_stream_rows_releases_its_cursor_when_abandoned_part_way_through(repository, tmp_path):
+    csv_path = tmp_path / "numbers.csv"
+    csv_path.write_text("id\n" + "\n".join(str(n) for n in range(1, 11)) + "\n")
+    repository.create_table_from_csv("numbers", csv_path)
+
+    stream = repository.stream_rows("numbers", RowQuery())
+    assert next(stream.rows) == {"id": 1}
+    stream.rows.close()
+
+    assert repository.count_rows("numbers") == 10

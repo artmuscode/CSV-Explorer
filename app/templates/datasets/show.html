@@ -22,6 +22,7 @@
     <div
       x-data="datasetTable"
       data-rows-url="{{ url_for('datasets.rows', name=dataset.name) }}"
+      data-export-url="{{ url_for('datasets.export', name=dataset.name) }}"
       data-max-page-size="{{ config.MAX_PAGE_SIZE }}"
       class="space-y-3"
     >
@@ -40,6 +41,13 @@
         >
           Clear filters
         </button>
+
+        <a
+          :href="exportHref"
+          class="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+        >
+          Export CSV
+        </a>
 
         <span x-show="loading" class="text-sm text-gray-500">Loading&hellip;</span>
 
@@ -83,6 +91,7 @@
                   <input
                     type="text"
                     x-model="filters[col.name]"
+                    placeholder="Starts with&hellip;"
                     class="w-full rounded-md border border-gray-300 px-2 py-1 text-xs font-normal normal-case text-gray-700 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
                   />
                 </th>
