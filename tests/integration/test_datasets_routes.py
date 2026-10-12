@@ -120,6 +120,17 @@ def test_rows_api_column_filter_matches_only_from_the_start_of_a_value(client, i
     assert payload["rows"] == [{"label": "zero", "amount": 0}]
 
 
+def test_rows_api_string_column_filter_matches_anywhere_in_a_value(client, ingested):
+    ingested("products.csv", "name,price\nprogram,10\ndiagram,20\nalpha,30\n")
+
+    response = client.get("/api/datasets/products/rows?filter[name]=ram")
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["total"] == 2
+    assert [row["name"] for row in payload["rows"]] == ["program", "diagram"]
+
+
 def test_export_streams_every_filtered_row_as_csv_ignoring_paging(client, ingested):
     ingested("people.csv", _csv_with_rows(30))
 

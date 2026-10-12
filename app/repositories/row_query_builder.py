@@ -93,6 +93,7 @@ class RowQueryBuilder:
     def _build_where(self, columns: list[Column], query: RowQuery) -> tuple[str, list[Any]]:
         clauses: list[str] = []
         params: list[Any] = []
+        columns_by_name = {column.name: column for column in columns}
 
         if query.search:
             pattern = f"%{_escape_like_term(query.search)}%"
@@ -102,11 +103,15 @@ class RowQueryBuilder:
                 params.append(pattern)
             clauses.append("(" + " OR ".join(search_clauses) + ")")
 
-        # Column filters anchor at the start of the value: filtering a numeric
-        # column by "0" should match 0, not 100.
+        # String columns match anywhere; non-string columns stay anchored at
+        # the start so filtering a numeric column by "0" matches 0, not 100.
         for name, value in query.filters.items():
             clauses.append(self._like_clause(name))
-            params.append(f"{_escape_like_term(value)}%")
+            escaped_value = _escape_like_term(value)
+            if self._is_string_column(columns_by_name[name]):
+                params.append(f"%{escaped_value}%")
+            else:
+                params.append(f"{escaped_value}%")
 
         if not clauses:
             return "", []
@@ -115,6 +120,12 @@ class RowQueryBuilder:
     def _like_clause(self, column_name: str) -> str:
         quoted = quote_identifier(column_name)
         return f"CAST({quoted} AS VARCHAR) ILIKE ? ESCAPE '\\'"
+
+    def _is_string_column(self, column: Column) -> bool:
+        normalized = column.type.strip().upper()
+        return normalized.startswith(("VARCHAR", "CHAR", "TEXT", "STRING")) or (
+            "CHARACTER" in normalized
+        )
 
     def _build_order_by(self, columns: list[Column], query: RowQuery) -> str:
         tiebreaker = self._tiebreaker(columns)
