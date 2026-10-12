@@ -124,9 +124,11 @@ Then open http://localhost:8000/. Notes:
   sorting, and paging, so it works correctly over the whole dataset, not
   just the currently loaded page.
 - **Matching rules**: the global search box matches anywhere in a value, so
-  `0` finds `100`. The per-column boxes anchor to the **start** of the
-  value, so `0` matches `0` and `0.5` but not `100`. Both are
-  case-insensitive, and `%` and `_` are matched literally.
+  `0` finds `100`. The per-column boxes are type-aware: string columns match
+  anywhere in the value (so `ram` matches `program`), while non-string
+  columns anchor to the **start** of the value (so `0` matches `0` and
+  `0.5` but not `100`). Both are case-insensitive, and `%` and `_` are
+  matched literally.
 - **Exporting**: the "Export CSV" button downloads
   `GET /datasets/<name>/export.csv` with the current search, filters and
   sort applied. Paging is deliberately ignored, so the file holds every
@@ -236,3 +238,6 @@ confirming by hand:
 
 This is best-effort automation; the checklist above is pending a manual
 pass in a real browser.
+
+## HCF
+https://github.com/markshust/hcf

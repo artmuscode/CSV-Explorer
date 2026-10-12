@@ -76,6 +76,21 @@ def test_build_column_filters_are_combined_with_and(connection, builder):
     assert total == 1
 
 
+def test_build_string_column_filters_match_anywhere_in_a_value(connection, builder):
+    connection.execute("CREATE TABLE products (name VARCHAR, category VARCHAR)")
+    connection.executemany(
+        "INSERT INTO products VALUES (?, ?)",
+        [("program", "software"), ("diagram", "design"), ("alpha", "misc")],
+    )
+    columns = [Column(name="name", type="VARCHAR"), Column(name="category", type="VARCHAR")]
+
+    built = builder.build("products", columns, RowQuery(filters={"name": "ram"}))
+    rows, total = _fetch(connection, built)
+
+    assert rows == [("program", "software"), ("diagram", "design")]
+    assert total == 2
+
+
 def test_build_column_filters_match_only_from_the_start_of_a_value(connection, builder):
     connection.execute("CREATE TABLE readings (amount INTEGER, label VARCHAR)")
     connection.executemany(
